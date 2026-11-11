@@ -3,5 +3,5 @@
   "private": true,
   "type": "module",
   "scripts": { "test": "playwright test", "test:api": "playwright test --project=api", "test:ui": "playwright test --project=ui" },
-  "devDependencies": { "@playwright/test": "^1.49.0", "@types/node": "^22.0.0", "typescript": "^5.6.0" }
+  "devDependencies": { "@playwright/test": "^1.49.0", "@types/node": "^26.6.6", "typescript": "^7.0.2" }
 }
