@@ -24,7 +24,7 @@ jobs:
           sed -i "s/^GHCR_OWNER=.*/GHCR_OWNER=${GITHUB_REPOSITORY_OWNER,,}/" .env.example
           ADMIN_PASSWORD="$E2E_ADMIN_PASSWORD" scripts/init-env.sh
           scripts/up.sh ci
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: lts/*, cache: npm, cache-dependency-path: e2e/package-lock.json }
       - run: npm ci && npx playwright install --with-deps chromium
         working-directory: e2e
