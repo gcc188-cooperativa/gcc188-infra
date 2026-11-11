@@ -1,0 +1,215 @@
+# Sistema completo: proxy, front, backend, db e backup. Somente o proxy publica portas (via sobreposições).
+# Uso: scripts/up.sh dev|prod   (equivale a: docker compose --env-file versions.env --env-file .env -f ... up -d --wait)
+name: cooperativa
+
+x-hardening: &hardening
+  restart: unless-stopped
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  logging:
+    driver: local
+    options: { max-size: "20m", max-file: "5" }   # ~30 dias para o volume previsto (RNF-23)
+
+services:
+  proxy:
+    <<: *hardening
+    image: caddy:${CADDY_VERSION}-alpine
+    cap_add: [NET_BIND_SERVICE]
+    read_only: true
+    tmpfs: [/tmp]
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:-localhost}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+      ACME_CA: ${ACME_CA:-https://acme-v02.api.letsencrypt.org/directory}
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data        # persistente: certificados ACME (R16)
+      - caddy_config:/config
+    networks: [edge]
+    depends_on:
+      front: { condition: service_healthy }
+      backend: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:2019/config/"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+
+  front:
+    <<: *hardening
+    image: ghcr.io/${GHCR_OWNER}/gcc188-front:${FRONT_VERSION}
+    read_only: true
+    tmpfs: [/tmp]
+    networks: [edge]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+
+  backend:
+    <<: *hardening
+    image: ghcr.io/${GHCR_OWNER}/gcc188-backend:${BACKEND_VERSION}
+    read_only: true
+    tmpfs: [/tmp]
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      SPRING_DATASOURCE_URL: ${DB_URL}
+      APP_TIMEZONE: ${APP_TIMEZONE:-America/Sao_Paulo}
+      APP_AUTH_COOKIE_SECURE: ${APP_AUTH_COOKIE_SECURE:-true}
+      MANAGEMENT_SERVER_PORT: "8081"                 # Actuator em porta separada, não roteada nem publicada
+      SERVER_PORT: "8080"
+      # Healthcheck do Paketo (thc): a imagem deve ser construída com BP_HEALTH_CHECKER_ENABLED=true
+      THC_PORT: "8081"
+      THC_PATH: /actuator/health/readiness
+      # Secrets lidos de arquivos em /run/secrets (um arquivo por propriedade) via configtree
+      SPRING_CONFIG_IMPORT: "optional:configtree:/run/secrets/"
+    secrets:
+      - spring.datasource.username
+      - spring.datasource.password
+      - app.auth.jwt-secret
+      - app.bootstrap.admin.email
+      - app.bootstrap.admin.password
+    networks: [edge, internal]
+    depends_on:
+      db: { condition: service_healthy, required: false }   # ausente quando o banco é gerenciado
+    deploy:
+      resources:
+        limits: { cpus: "${BACKEND_CPUS:-1.0}", memory: "${BACKEND_MEM:-1g}" }
+    healthcheck:
+      test: ["CMD", "thc"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+
+  db:
+    <<: *hardening
+    profiles: [local-db]
+    image: postgres:${POSTGRES_MAJOR}-alpine
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID]   # necessários ao entrypoint oficial
+    environment:
+      POSTGRES_DB: ${DB_NAME:-cooperativa}
+      POSTGRES_USER_FILE: /run/secrets/spring.datasource.username
+      POSTGRES_PASSWORD_FILE: /run/secrets/spring.datasource.password
+      TZ: UTC
+    secrets: [spring.datasource.username, spring.datasource.password]
+    volumes:
+      - pgdata:/var/lib/postgresql
+    networks: [internal]
+    shm_size: 128mb
+    deploy:
+      resources:
+        limits: { cpus: "${DB_CPUS:-1.0}", memory: "${DB_MEM:-1g}" }
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$(cat /run/secrets/spring.datasource.username)\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  backup:
+    <<: *hardening
+    profiles: [local-db]
+    build: { context: ./backup, args: { POSTGRES_MAJOR: "${POSTGRES_MAJOR}" } }
+    image: cooperativa-backup:local
+    user: "70:70"          # usuário postgres da imagem alpine
+    environment:
+      PGHOST: db
+      PGDATABASE: ${DB_NAME:-cooperativa}
+      BACKUP_HOUR: ${BACKUP_HOUR:-02}
+      BACKUP_RCLONE_REMOTE: ${BACKUP_RCLONE_REMOTE:-}
+      TZ: America/Sao_Paulo
+    secrets: [spring.datasource.username, spring.datasource.password]
+    volumes: [backups:/backups]
+    networks: [internal]
+    depends_on:
+      db: { condition: service_healthy }
+
+  # ---- Ferramentas (perfil tools): restauração em banco descartável (CA-13) ----
+  db-restore:
+    profiles: [tools]
+    image: postgres:${POSTGRES_MAJOR}-alpine
+    environment: { POSTGRES_PASSWORD: restore, POSTGRES_DB: restore }
+    networks: [internal]
+    tmpfs: [/var/lib/postgresql]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d restore"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  restore-check:
+    profiles: [tools]
+    image: cooperativa-backup:local
+    user: "70:70"
+    command: ["restore-check.sh"]
+    environment:
+      PGHOST: db
+      PGDATABASE: ${DB_NAME:-cooperativa}
+      RESTORE_HOST: db-restore
+      RESTORE_DB: restore
+      RESTORE_USER: postgres
+      RESTORE_PASSWORD: restore
+    secrets: [spring.datasource.username, spring.datasource.password]
+    volumes: [backups:/backups:ro]
+    networks: [internal]
+    depends_on:
+      db-restore: { condition: service_healthy }
+
+  # ---- Observabilidade opcional (perfil observability; D15) ----
+  loki:
+    profiles: [observability]
+    image: grafana/loki:3.3.2
+    command: ["-config.file=/etc/loki/config.yaml"]
+    volumes:
+      - ./observability/loki-config.yaml:/etc/loki/config.yaml:ro
+      - loki_data:/loki
+    networks: [internal]
+    restart: unless-stopped
+
+  alloy:
+    profiles: [observability]
+    image: grafana/alloy:v1.5.1
+    command: ["run", "/etc/alloy/config.alloy"]
+    volumes:
+      - ./observability/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro   # leitura de logs; ver riscos no runbook
+    networks: [internal]
+    depends_on: [loki]
+    restart: unless-stopped
+
+  grafana:
+    profiles: [observability]
+    image: grafana/grafana:11.4.0
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana.admin.password
+    secrets: [grafana.admin.password]
+    volumes:
+      - ./observability/grafana/datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml:ro
+      - grafana_data:/var/lib/grafana
+    ports: ["127.0.0.1:3000:3000"]
+    networks: [internal]
+    depends_on: [loki]
+    restart: unless-stopped
+
+networks:
+  edge: {}
+  internal:
+    internal: true        # sem saída para fora do host
+
+volumes:
+  pgdata: {}
+  backups: {}
+  caddy_data: {}
+  caddy_config: {}
+  loki_data: {}
+  grafana_data: {}
+
+secrets:
+  spring.datasource.username: { file: ./secrets/spring.datasource.username }
+  spring.datasource.password: { file: ./secrets/spring.datasource.password }
+  app.auth.jwt-secret: { file: ./secrets/app.auth.jwt-secret }
+  app.bootstrap.admin.email: { file: ./secrets/app.bootstrap.admin.email }
+  app.bootstrap.admin.password: { file: ./secrets/app.bootstrap.admin.password }
+  grafana.admin.password: { file: ./secrets/grafana.admin.password }

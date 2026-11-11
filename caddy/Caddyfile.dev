@@ -1,0 +1,28 @@
+# Desenvolvimento: certificado do mkcert (ou autoassinado) montado em /certs. Sem HSTS, para o
+# navegador não guardá-lo para `localhost`.
+{
+	auto_https off
+}
+
+https://localhost:443 {
+	tls /certs/localhost.pem /certs/localhost-key.pem
+	encode zstd gzip
+	header {
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Content-Security-Policy "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+		-Server
+	}
+	handle /api/* {
+		reverse_proxy backend:8080 {
+			header_up X-Request-Id {http.request.uuid}
+		}
+	}
+	handle {
+		reverse_proxy front:8080
+	}
+	log {
+		output stdout
+		format json
+	}
+}

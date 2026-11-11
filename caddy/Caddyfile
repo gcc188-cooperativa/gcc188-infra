@@ -1,0 +1,28 @@
+# Produção (D28, D29): mesma origem — `/` para o front e `/api` para o backend. TLS por ACME automático.
+{
+	email {$ACME_EMAIL}
+	acme_ca {$ACME_CA:https://acme-v02.api.letsencrypt.org/directory}
+}
+
+{$APP_DOMAIN} {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Content-Security-Policy "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+		-Server
+	}
+	handle /api/* {
+		reverse_proxy backend:8080 {
+			header_up X-Request-Id {http.request.uuid}
+		}
+	}
+	handle {
+		reverse_proxy front:8080
+	}
+	log {
+		output stdout
+		format json
+	}
+}
