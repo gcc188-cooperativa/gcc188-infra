@@ -1,0 +1,13 @@
+# Sobreposição de produção (host ou VPS): domínio real, ACME automático, portas 80 e 443.
+services:
+  proxy:
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?defina APP_DOMAIN no .env}
+      ACME_EMAIL: ${ACME_EMAIL:?defina ACME_EMAIL no .env}
+  backend:
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      APP_AUTH_COOKIE_SECURE: "true"

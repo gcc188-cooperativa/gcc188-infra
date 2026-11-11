@@ -1,0 +1,14 @@
+# Sobreposição local: portas somente em 127.0.0.1 e certificado do mkcert (D29).
+services:
+  proxy:
+    ports:
+      - "127.0.0.1:8443:443"
+    volumes:
+      - ./caddy/Caddyfile.dev:/etc/caddy/Caddyfile:ro
+      - ./certs:/certs:ro
+  backend:
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+  db:
+    ports:
+      - "127.0.0.1:5432:5432"
