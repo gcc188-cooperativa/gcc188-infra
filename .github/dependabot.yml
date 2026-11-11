@@ -1,0 +1,19 @@
+version: 2
+updates:
+  - package-ecosystem: docker
+    directory: /backup
+    schedule: { interval: weekly }
+    commit-message: { prefix: 'chore(deps)' }
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule: { interval: weekly }
+    commit-message: { prefix: 'chore(deps)' }
+  - package-ecosystem: npm
+    directory: /e2e
+    schedule: { interval: weekly }
+    commit-message: { prefix: 'chore(deps)' }
+    groups: { e2e: { patterns: ['*'] } }
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }
+    commit-message: { prefix: 'chore(ci)' }

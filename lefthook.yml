@@ -1,0 +1,20 @@
+# Ganchos locais (D33): conveniência para falhar cedo; o CI executa as mesmas verificações.
+pre-commit:
+  parallel: true
+  commands:
+    yamllint:
+      glob: '*.{yml,yaml}'
+      run: yamllint {staged_files}
+    shellcheck:
+      glob: '*.sh'
+      run: shellcheck -x -S warning {staged_files}
+    hadolint:
+      glob: '**/Dockerfile'
+      run: hadolint {staged_files}
+    compose:
+      glob: 'compose*.yaml'
+      run: docker compose --env-file versions.env --env-file .env.example -f compose.yaml config -q
+commit-msg:
+  commands:
+    commitlint:
+      run: npx --no-install commitlint --edit {1}

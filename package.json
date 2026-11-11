@@ -1,0 +1,11 @@
+{
+  "name": "gcc188-infra-tooling",
+  "private": true,
+  "description": "Ferramentas de commit (commitlint e lefthook); o sistema em si é definido pelo Compose.",
+  "scripts": { "prepare": "lefthook install || true" },
+  "devDependencies": {
+    "@commitlint/cli": "^19.5.0",
+    "@commitlint/config-conventional": "^19.5.0",
+    "lefthook": "^1.8.0"
+  }
+}
