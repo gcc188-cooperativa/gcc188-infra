@@ -25,7 +25,7 @@ jobs:
           docker compose --env-file versions.env --env-file .env -f compose.yaml config -q
           docker compose --env-file versions.env --env-file .env -f compose.yaml -f compose.dev.yaml config -q
           APP_DOMAIN=x.example ACME_EMAIL=a@x.example docker compose --env-file versions.env --env-file .env -f compose.yaml -f compose.prod.yaml config -q
-      - uses: aquasecurity/trivy-action@0.36.0
+      - uses: aquasecurity/trivy-action@v0.36.0
         with: { scan-type: config, scan-ref: ., severity: 'CRITICAL,HIGH', exit-code: '1' }
   e2e:
     uses: ./.github/workflows/e2e.yml
