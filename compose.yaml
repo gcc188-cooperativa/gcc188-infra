@@ -180,7 +180,7 @@ services:
 
   grafana:
     profiles: [observability]
-    image: grafana/grafana:11.4.0
+    image: grafana/grafana:13.3.0
     environment:
       GF_AUTH_ANONYMOUS_ENABLED: "false"
       GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana.admin.password
