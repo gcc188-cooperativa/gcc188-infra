@@ -1,0 +1,58 @@
+# Teste ponta a ponta e teste de backup do sistema integrado. Reutilizável.
+# edge=false: versões fixadas em versions.env (PRs). edge=true: imagens `edge` de develop (agendado).
+name: e2e
+on:
+  workflow_call:
+    inputs:
+      edge: { type: boolean, default: false }
+jobs:
+  e2e:
+    name: Playwright (CA-08 a CA-12, CA-15)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      E2E_ADMIN_PASSWORD: 'e2e-senha-inicial-2026'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with: { registry: ghcr.io, username: '${{ github.actor }}', password: '${{ secrets.GITHUB_TOKEN }}' }
+      - name: Versões das imagens
+        if: inputs.edge
+        run: echo "BACKEND_VERSION=edge" >> "$GITHUB_ENV" && echo "FRONT_VERSION=edge" >> "$GITHUB_ENV"
+      - name: Subir o sistema
+        run: |
+          sed -i "s/^GHCR_OWNER=.*/GHCR_OWNER=${GITHUB_REPOSITORY_OWNER,,}/" .env.example
+          ADMIN_PASSWORD="$E2E_ADMIN_PASSWORD" scripts/init-env.sh
+          scripts/up.sh ci
+      - uses: actions/setup-node@v4
+        with: { node-version: lts/*, cache: npm, cache-dependency-path: e2e/package-lock.json }
+      - run: npm ci && npx playwright install --with-deps chromium
+        working-directory: e2e
+      - run: npx playwright test
+        working-directory: e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with: { name: playwright-report, path: e2e/playwright-report }
+      - name: Logs do sistema
+        if: failure()
+        run: docker compose --env-file versions.env --env-file .env -f compose.yaml -f compose.dev.yaml logs --tail=200
+      - if: always()
+        run: scripts/reset-dev.sh --yes
+  backup:
+    name: Teste de backup e restauração (CA-13)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with: { registry: ghcr.io, username: '${{ github.actor }}', password: '${{ secrets.GITHUB_TOKEN }}' }
+      - name: Versões das imagens
+        if: inputs.edge
+        run: echo "BACKEND_VERSION=edge" >> "$GITHUB_ENV" && echo "FRONT_VERSION=edge" >> "$GITHUB_ENV"
+      - run: |
+          sed -i "s/^GHCR_OWNER=.*/GHCR_OWNER=${GITHUB_REPOSITORY_OWNER,,}/" .env.example
+          scripts/init-env.sh
+          scripts/up.sh ci
+          e2e/backup-test.sh ci
+      - if: always()
+        run: scripts/reset-dev.sh --yes

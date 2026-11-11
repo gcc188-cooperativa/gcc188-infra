@@ -1,0 +1,30 @@
+# RNF-10: k6 com a massa de referência (1.000 contratos, 12.000 pagamentos, 5.000 despesas),
+# backend 1 CPU/1 GiB e PostgreSQL 1 GiB (limites padrão do compose.yaml).
+name: perf
+on:
+  workflow_call:
+  workflow_dispatch:
+permissions: { contents: read, packages: read }
+jobs:
+  k6:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with: { registry: ghcr.io, username: '${{ github.actor }}', password: '${{ secrets.GITHUB_TOKEN }}' }
+      - uses: grafana/setup-k6-action@v1
+      - name: Subir e semear
+        run: |
+          sed -i "s/^GHCR_OWNER=.*/GHCR_OWNER=${GITHUB_REPOSITORY_OWNER,,}/" .env.example
+          scripts/init-env.sh
+          scripts/up.sh ci
+          docker compose --env-file versions.env --env-file .env -f compose.yaml -f compose.dev.yaml exec -T db \
+            psql -v ON_ERROR_STOP=1 -U "$(cat secrets/spring.datasource.username)" -d cooperativa -v contratos=1000 -f - < e2e/seed.sql
+          e2e/k6/prepare.sh
+      - name: k6
+        run: |
+          set -a; . e2e/k6/.k6.env; set +a
+          k6 run -e BASE=https://localhost:8443 e2e/k6/perf.js
+      - if: always()
+        run: scripts/reset-dev.sh --yes

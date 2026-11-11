@@ -1,0 +1,15 @@
+# Release Please: PR de release com versão e CHANGELOG; ao integrá-lo cria a tag vX.Y.Z.
+# Este repositório não publica artefato de runtime: a tag marca um conjunto de versões testado (versions.env).
+name: release
+on:
+  push:
+    branches: [master]
+permissions: { contents: write, pull-requests: write }
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v4
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json

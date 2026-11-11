@@ -1,0 +1,38 @@
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [master]
+permissions:
+  contents: read
+  packages: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  lint:
+    name: yamllint, hadolint, shellcheck, compose config, Trivy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install yamllint && yamllint .
+      - uses: hadolint/hadolint-action@v3.1.0
+        with: { dockerfile: backup/Dockerfile }
+      - run: sudo apt-get install -y shellcheck && shellcheck -x -S warning scripts/*.sh e2e/backup-test.sh e2e/k6/prepare.sh backup/*.sh
+      - name: docker compose config
+        run: |
+          cp .env.example .env
+          docker compose --env-file versions.env --env-file .env -f compose.yaml config -q
+          docker compose --env-file versions.env --env-file .env -f compose.yaml -f compose.dev.yaml config -q
+          APP_DOMAIN=x.example ACME_EMAIL=a@x.example docker compose --env-file versions.env --env-file .env -f compose.yaml -f compose.prod.yaml config -q
+      - uses: aquasecurity/trivy-action@0.28.0
+        with: { scan-type: config, scan-ref: ., severity: 'CRITICAL,HIGH', exit-code: '1' }
+  e2e:
+    uses: ./.github/workflows/e2e.yml
+    permissions: { contents: read, packages: read }
+    with: { edge: false }
+  perf:
+    # Antes de cada release (RNF-10): roda no PR de release do Release Please
+    if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'release-please--')
+    uses: ./.github/workflows/perf.yml
+    permissions: { contents: read, packages: read }

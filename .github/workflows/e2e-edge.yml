@@ -1,0 +1,12 @@
+name: e2e-edge
+on:
+  # Agendamento diário suspenso até o marco M0: exige imagens `edge` de backend/front
+  # publicadas no GHCR (BACKEND_VERSION/FRONT_VERSION em versions.env). Reativar com releases fixas.
+  # schedule:
+  #   - cron: '0 6 * * *'
+  workflow_dispatch:
+permissions: { contents: read, packages: read }
+jobs:
+  edge:
+    uses: ./.github/workflows/e2e.yml
+    with: { edge: true }
