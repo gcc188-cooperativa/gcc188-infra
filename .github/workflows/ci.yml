@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: pip install yamllint && yamllint .
-      - uses: hadolint/hadolint-action@v3.1.0
+      - uses: hadolint/hadolint-action@v3.5.0
         with: { dockerfile: backup/Dockerfile }
       - run: sudo apt-get install -y shellcheck && shellcheck -x -S warning scripts/*.sh e2e/backup-test.sh e2e/k6/prepare.sh backup/*.sh
       - name: docker compose config
