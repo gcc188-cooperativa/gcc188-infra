@@ -106,6 +106,14 @@ A suíte promove a senha do administrador para `senha-forte-e2e-2026` no primeir
 - **Antes de cada release:** `perf` roda no PR de release do Release Please (ou manualmente).
 - **Versão:** Release Please cria a tag `vX.Y.Z` e o `CHANGELOG.md`. Modelo de ramos: _trunk-based_ protegido (D04) — `master`, ramos curtos `feat/*` e `fix/*`, PR com revisão e verificações obrigatórias, _squash merge_. Commits: `tipo(escopo): descrição` (escopos em `commitlint.config.cjs`).
 
+## Regras de uso do Git (tarefa #21)
+
+- **Ramos:** _trunk-based_ protegido (D04) — `master` + ramos curtos `feat/*`, `fix/*` e `docs/*` (até 2 dias úteis), PR com revisão e verificações obrigatórias, _squash merge_. Release Please cria a tag `vX.Y.Z`.
+- **Commits:** _Conventional Commits_ `tipo(escopo): descrição (RF/RNF-xxx)`; escopos válidos em `commitlint.config.cjs` (`proxy`, `front`, `backend`, `db`, `backup`, `compose`, `e2e`, `perf`, `observabilidade`, `scripts`, `versoes`, `ci`, `deps`, `docs`). Ex.: `fix(proxy): corrigir CSP (RNF-19)`.
+- **Pastas:** Compose, `caddy/`, `backup/`, `observability/`, `e2e/`, `scripts/` e `docs/runbook.md` ficam aqui; a documentação de requisitos e design fica em `gcc188-docs`. `secrets/`, `certs/` e `.env` nunca são versionados.
+- **`.gitignore`:** ignora `.env`, `secrets/`, `certs/`, `node_modules/`, relatórios do Playwright, resultados de teste e `e2e/k6/.k6.env`; qualquer novo segredo ou arquivo gerado deve ser acrescentado antes do commit.
+- **Verificação:** `lefthook` executa `pre-commit` (yamllint, shellcheck, hadolint, `docker compose config`) e `commit-msg` (commitlint); o workflow `governance` valida título de PR e commits no CI.
+
 ## Limites desta entrega
 
 Nada aqui foi executado contra Docker (o ambiente de desenvolvimento deste repositório não o tinha): a sintaxe YAML, o `yamllint`, o `shellcheck`, `bash -n` e o `init-env.sh` foram verificados, mas **`docker compose config`/`up`, o `restore-check`, o `seed.sql`, os testes Playwright e o k6 precisam do primeiro _run_ real** (o CI faz isso). Os testes de API também dependem de o backend cumprir o contrato `gcc188-api-contract`.
