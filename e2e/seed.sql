@@ -14,7 +14,7 @@ INSERT INTO usuario (nome, email, senha_hash, papel, ativo, deve_trocar_senha, c
 SELECT 'Cliente ' || g, 'seedcli' || g || '@seed.local', '{noop}invalido', 'CLIENTE', true, false, now(), now()
 FROM generate_series(1, 50) g;
 
-INSERT INTO cooperando (usuario_id, matricula, nome, cpf, telefone, data_ingresso, ativo, criado_em, atualizado_em)
+INSERT INTO cooperado (usuario_id, matricula, nome, cpf, telefone, data_ingresso, ativo, criado_em, atualizado_em)
 SELECT u.id, 'SEED-' || lpad(g::text, 4, '0'), 'Motorista ' || g, lpad((90000000000 + g)::text, 11, '0'), '35999990000', date '2024-01-01', true, now(), now()
 FROM generate_series(1, 20) g JOIN usuario u ON u.email = 'seedmot' || g || '@seed.local';
 
@@ -24,9 +24,9 @@ FROM generate_series(1, 50) g JOIN usuario u ON u.email = 'seedcli' || g || '@se
 
 -- Contratos MENSAIS de 12 parcelas de 1.000,00 (taxa 10%): 80% ATIVO, 10% ENCERRADO, 10% CANCELADO.
 WITH adm AS (SELECT min(id) AS id FROM usuario WHERE papel = 'ADMINISTRADOR'),
-     co AS (SELECT id, row_number() OVER (ORDER BY id) - 1 AS n FROM cooperando WHERE matricula LIKE 'SEED-%'),
+     co AS (SELECT id, row_number() OVER (ORDER BY id) - 1 AS n FROM cooperado WHERE matricula LIKE 'SEED-%'),
      cl AS (SELECT id, row_number() OVER (ORDER BY id) - 1 AS n FROM cliente WHERE email_contato LIKE 'seedcli%')
-INSERT INTO contrato (cooperando_id, cliente_id, descricao, valor_total, modalidade, num_parcelas, dia_vencimento, data_inicio, taxa_tipo, taxa_valor,
+INSERT INTO contrato (cooperado_id, cliente_id, descricao, valor_total, modalidade, num_parcelas, dia_vencimento, data_inicio, taxa_tipo, taxa_valor,
                       status, criado_por_id, aprovado_por_id, aprovado_em, criado_em, atualizado_em)
 SELECT co.id, cl.id, 'Contrato de teste ' || g, 12000.00, 'MENSAL', 12, 10, date '2026-01-01', 'PERCENTUAL', 10.00,
        CASE g % 10 WHEN 8 THEN 'ENCERRADO' WHEN 9 THEN 'CANCELADO' ELSE 'ATIVO' END,
@@ -50,13 +50,13 @@ CROSS JOIN LATERAL (SELECT CASE c.status
         ELSE CASE WHEN p = 1 THEN 'REPASSADO' WHEN p IN (2, 3) THEN 'PAGO' ELSE 'PREVISTO' END END AS s) st
 WHERE c.descricao LIKE 'Contrato de teste %';
 
--- Despesas: 5 por contrato (5.000 para 1.000 contratos); 80% do cooperando, 20% da cooperativa.
+-- Despesas: 5 por contrato (5.000 para 1.000 contratos); 80% do cooperado, 20% da cooperativa.
 WITH adm AS (SELECT min(id) AS id FROM usuario WHERE papel = 'ADMINISTRADOR')
-INSERT INTO despesa (origem, categoria, descricao, valor, data_despesa, cooperando_id, contrato_id, registrado_por_id, criado_em, atualizado_em)
-SELECT CASE WHEN d % 5 = 0 THEN 'COOPERATIVA' ELSE 'COOPERANDO' END,
+INSERT INTO despesa (origem, categoria, descricao, valor, data_despesa, cooperado_id, contrato_id, registrado_por_id, criado_em, atualizado_em)
+SELECT CASE WHEN d % 5 = 0 THEN 'COOPERATIVA' ELSE 'COOPERADO' END,
        (ARRAY['COMBUSTIVEL','PEDAGIO','MANUTENCAO','ADMINISTRATIVA','TRIBUTOS','OUTROS'])[1 + (d % 6)],
        'Despesa de teste ' || d, 100.00 + (d % 50), date '2026-01-01' + (d % 300),
-       CASE WHEN d % 5 = 0 THEN NULL ELSE c.cooperando_id END,
+       CASE WHEN d % 5 = 0 THEN NULL ELSE c.cooperado_id END,
        CASE WHEN d % 5 = 0 THEN NULL ELSE c.id END,
        adm.id, now(), now()
 FROM (SELECT g AS d, (SELECT id FROM contrato WHERE descricao = 'Contrato de teste ' || ((g - 1) % :contratos + 1)) AS cid

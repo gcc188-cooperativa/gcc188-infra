@@ -61,15 +61,15 @@ export async function criarUsuario(adm: Sessao, papel: 'FINANCEIRO') {
   return Sessao.entrar(email, 'senha-temporaria-e2e');
 }
 
-export async function criarCooperando(adm: Sessao) {
+export async function criarCooperado(adm: Sessao) {
   const n = Math.floor(Math.random() * 1e9).toString().padStart(9, '0');
   const email = `mot-${uid()}@e2e.local`;
-  const r = await adm.enviar('post', '/cooperandos', {
+  const r = await adm.enviar('post', '/cooperados', {
     matricula: `E2E-${uid()}`.slice(0, 20), nome: 'Motorista E2E', cpf: cpfValido(n), data_ingresso: '2024-01-01',
     usuario: { email, senha: 'senha-temporaria-e2e' },
   });
   expect(r.status(), await r.text()).toBe(201);
-  return { cooperando: await r.json(), email };
+  return { cooperado: await r.json(), email };
 }
 
 export async function criarCliente(adm: Sessao) {
