@@ -11,7 +11,7 @@ src() { PGPASSWORD="$SRC_PASS" psql -h "$PGHOST" -U "$SRC_USER" -d "$PGDATABASE"
 dst() { PGPASSWORD="$RESTORE_PASSWORD" psql -h "$RESTORE_HOST" -U "$RESTORE_USER" -d "$RESTORE_DB" -At -c "$1"; }
 echo "restaurando $DUMP em $RESTORE_HOST/$RESTORE_DB"
 PGPASSWORD="$RESTORE_PASSWORD" pg_restore -h "$RESTORE_HOST" -U "$RESTORE_USER" -d "$RESTORE_DB" --no-owner --exit-on-error "$DUMP"
-TABLES="usuario cooperando cliente contrato pagamento despesa refresh_token"
+TABLES="usuario cooperado cliente contrato pagamento despesa refresh_token"
 SOMA="SELECT coalesce(md5(string_agg(contrato_id || ':' || s, ',' ORDER BY contrato_id)), '') FROM (SELECT contrato_id, sum(valor_bruto) s FROM pagamento GROUP BY contrato_id) x"
 rc=0
 if src "SELECT 1" >/dev/null 2>&1; then
