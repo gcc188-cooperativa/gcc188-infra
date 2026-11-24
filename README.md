@@ -23,6 +23,21 @@ scripts/down.sh dev          # para, preservando volumes
 scripts/reset-dev.sh         # DESTRUTIVO: apaga banco e volumes locais
 ```
 
+### Execução local com Podman
+
+Quando não há Docker, mas há Podman, instale o provider de Compose em
+`~/.docker/cli-plugins/docker-compose` (qualquer release v2 do Docker Compose serve) e use:
+
+```bash
+scripts/up-local.sh          # constrói backend/front dos fontes, sobe tudo e libera o login local
+# https://localhost:8443  →  admin@teste.com / admin
+```
+
+O overlay `compose.local.yaml` troca apenas o healthcheck do backend (a imagem local não traz
+`thc`), reduz a senha mínima para 4 caracteres (credencial `admin@teste.com` / `admin`) e usa um socket da API
+do Podman funcional mesmo após reboot da sessão. O build do front usa `gcc188-front/Dockerfile.local`,
+que instala os pacotes Mantine ainda importados pelo código em migração sem alterar o `package.json`.
+
 Sem instalar Java nem Node (RNF-15). As imagens vêm de `ghcr.io/<GHCR_OWNER>/gcc188-{backend,front}` nas versões de `versions.env` (`edge` é provisório até existirem releases; fixe `X.Y.Z` no marco M0). Para imagens privadas: `docker login ghcr.io`.
 
 ## Estrutura
