@@ -93,7 +93,7 @@ e2e/k6/prepare.sh && set -a && . e2e/k6/.k6.env && set +a && k6 run e2e/k6/perf.
 |---|---|
 | `seguranca.api.spec.ts` | CA-11 (CSRF), CA-12 (reuso de _refresh_), CA-15, atributos dos _cookies_, 401 e mensagem única de login, cabeçalhos e Actuator não exposto |
 | `fluxo.api.spec.ts` | contrato → aprovação → baixa → repasse; CA-01 a CA-07 (parcial), matriz de papéis, concorrência |
-| `sessao.ui.spec.ts` | redirecionamento ao _login_, entrada, CA-10 |
+| `sessao.ui.spec.ts` | exibição do _login_ em rotas protegidas, entrada, CA-10 |
 | `backup-test.sh` | CA-13, RN05 sobre o dump restaurado |
 | `k6/perf.js` | RNF-10: p95 de listagens 800 ms, comandos 1 s, relatórios 2 s, massa de 1.000/12.000/5.000 |
 
