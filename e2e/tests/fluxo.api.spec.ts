@@ -56,8 +56,14 @@ test('fluxo completo: do contrato ao repasse', async () => {
   expect((await motB.get(`/contratos/${contrato.id}`)).status()).toBe(404);
 
   // Concorrência otimista: PUT com versão antiga → 409 (D13) — contrato ATIVO não é editável (RN12)
-  const put = await adm.enviar('put', `/contratos/${contrato.id}`, { ...contrato, versao: 0 });
-  expect(put.status()).toBe(409);
+  const put = await adm.enviar('put', `/contratos/${contrato.id}`, {
+    cooperando_id: cooperando.id, cliente_id: cliente.id, descricao: contrato.descricao,
+    valor_total: contrato.valor_total, modalidade: contrato.modalidade,
+    num_parcelas: contrato.num_parcelas, dia_vencimento: contrato.dia_vencimento,
+    data_inicio: contrato.data_inicio, data_fim: contrato.data_fim,
+    taxa_tipo: contrato.taxa_tipo, taxa_valor: contrato.taxa_valor, versao: 0,
+  });
+  expect(put.status(), await put.text()).toBe(409);
 });
 
 test('CA-02: taxa fixa maior que a parcela responde 422 com o campo taxa_valor', async () => {
