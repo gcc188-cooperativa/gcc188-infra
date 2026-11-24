@@ -89,6 +89,8 @@ e2e/backup-test.sh dev                      # CA-13: semeia, faz backup, restaur
 e2e/k6/prepare.sh && set -a && . e2e/k6/.k6.env && set +a && k6 run e2e/k6/perf.js   # RNF-10 (semeie antes com contratos=1000)
 ```
 
+A suíte promove a senha do administrador para `senha-forte-e2e-2026` no primeiro uso; `E2E_ADMIN_PASSWORD` continua sendo a senha inicial do bootstrap.
+
 | Teste | Cobre |
 |---|---|
 | `seguranca.api.spec.ts` | CA-11 (CSRF), CA-12 (reuso de _refresh_), CA-15, atributos dos _cookies_, 401 e mensagem única de login, cabeçalhos e Actuator não exposto |
