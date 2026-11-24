@@ -51,7 +51,22 @@ export async function admin() {
   const r = await s.login(ADMIN_EMAIL, SENHA);
   if (r.status() === 200) return s;
   await s.ctx.dispose();
-  return Sessao.entrar(ADMIN_EMAIL, ADMIN_PASSWORD);
+
+  // Bootstrap local pode vir sem troca obrigatória: promover à senha final uma vez para que
+  // os testes de interface (que fazem login pelo formulário) usem a mesma credencial.
+  const inicial = await Sessao.nova();
+  const entrada = await inicial.login(ADMIN_EMAIL, ADMIN_PASSWORD);
+  expect(entrada.status(), await entrada.text()).toBe(200);
+  const troca = await inicial.enviar('post', '/auth/alterar-senha', {
+    senha_atual: ADMIN_PASSWORD, nova_senha: SENHA,
+  });
+  expect(troca.status(), await troca.text()).toBe(204);
+  await inicial.ctx.dispose();
+
+  const final = await Sessao.nova();
+  const reentrada = await final.login(ADMIN_EMAIL, SENHA);
+  expect(reentrada.status(), await reentrada.text()).toBe(200);
+  return final;
 }
 
 export async function criarUsuario(adm: Sessao, papel: 'FINANCEIRO') {
