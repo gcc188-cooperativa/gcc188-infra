@@ -46,8 +46,12 @@ test.describe('Autenticação, CSRF e cabeçalhos', () => {
     const r = await request.get('/');
     expect(r.headers()['x-content-type-options']).toBe('nosniff');
     expect(r.headers()['content-security-policy']).toContain("frame-ancestors 'none'");
-    expect((await request.get('/actuator/health')).status()).not.toBe(200);
-    expect((await request.get('/api/actuator/health')).status()).not.toBe(200);
+    // O front é uma SPA: /actuator/health pode cair no fallback e responder 200 com HTML.
+    // O que importa é não expor o payload do Actuator (nem direto, nem sob /api).
+    for (const url of ['/actuator/health', '/api/actuator/health']) {
+      const resposta = await request.get(url);
+      expect(await resposta.text()).not.toContain('"status":"UP"');
+    }
   });
 
   test('CA-15: usuário com troca de senha pendente só acessa troca de senha e logout', async () => {

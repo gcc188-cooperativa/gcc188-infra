@@ -83,6 +83,7 @@ Estes pontos precisam ser cumpridos pelos repositórios `gcc188-backend` e `gcc1
 ```bash
 scripts/up.sh dev
 cd e2e && npm ci && npx playwright install chromium
+E2E_ADMIN_EMAIL="$(cat ../secrets/app.bootstrap.admin.email)" \
 E2E_ADMIN_PASSWORD="$(cat ../secrets/app.bootstrap.admin.password)" npx playwright test   # projetos: api, ui
 e2e/backup-test.sh dev                      # CA-13: semeia, faz backup, restaura em banco descartável e confere
 e2e/k6/prepare.sh && set -a && . e2e/k6/.k6.env && set +a && k6 run e2e/k6/perf.js   # RNF-10 (semeie antes com contratos=1000)
