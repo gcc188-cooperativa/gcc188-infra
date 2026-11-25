@@ -32,5 +32,4 @@ services:
     logging: *logging
     build:
       context: ../gcc188-front
-      dockerfile: Dockerfile.local
     pull_policy: build

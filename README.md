@@ -35,8 +35,10 @@ scripts/up-local.sh          # constrói backend/front dos fontes, sobe tudo e l
 
 O overlay `compose.local.yaml` troca apenas o healthcheck do backend (a imagem local não traz
 `thc`), reduz a senha mínima para 4 caracteres (credencial `admin@teste.com` / `admin`) e usa um socket da API
-do Podman funcional mesmo após reboot da sessão. O build do front usa `gcc188-front/Dockerfile.local`,
-que instala os pacotes Mantine ainda importados pelo código em migração sem alterar o `package.json`.
+do Podman funcional mesmo após reboot da sessão. O build do front usa o `Dockerfile` versionado em
+`gcc188-front`, que instala somente as dependências declaradas no `package.json`. O build do backend
+continua usando `gcc188-backend/Dockerfile.local`, pois a imagem publicada é gerada via Paketo
+(`bootBuildImage`) e não há Dockerfile de produção no repositório da API.
 
 Sem instalar Java nem Node (RNF-15). As imagens vêm de `ghcr.io/<GHCR_OWNER>/gcc188-{backend,front}` nas versões de `versions.env` (`edge` é provisório até existirem releases; fixe `X.Y.Z` no marco M0). Para imagens privadas: `docker login ghcr.io`.
 
