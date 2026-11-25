@@ -1,0 +1,35 @@
+# Overlay exclusivo para execução local com Podman (sem publicar imagens no GHCR).
+# Uso: scripts/up-local.sh  →  compose.yaml + compose.dev.yaml + este arquivo.
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "20m", max-file: "5" }
+
+services:
+  proxy:
+    logging: *logging
+  db:
+    logging: *logging
+  backup:
+    logging: *logging
+  backend:
+    logging: *logging
+    build:
+      context: ../gcc188-backend
+      dockerfile: Dockerfile.local
+    pull_policy: build
+    environment:
+      # O bootstrap local usa a credencial curta definida em secrets/ (admin/admin).
+      APP_AUTH_SENHA_MINIMA: "4"
+    # A imagem Paketo traz `thc`; a imagem local usa wget no Actuator (porta 8081).
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8081/actuator/health/readiness"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 60s
+
+  front:
+    logging: *logging
+    build:
+      context: ../gcc188-front
+    pull_policy: build

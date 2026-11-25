@@ -1,18 +1,18 @@
 import { test, expect } from '@playwright/test';
-import { Sessao, admin, criarUsuario, criarCooperando, criarCliente, SENHA } from './api';
+import { Sessao, admin, criarUsuario, criarCooperado, criarCliente, SENHA } from './api';
 
 // Fluxo principal pelo sistema integrado (proxy → backend → banco): cadastro, contrato, aprovação,
 // baixa e repasse, com checagem de papel e de escopo (CA-01, CA-03, CA-04, CA-05).
 test('fluxo completo: do contrato ao repasse', async () => {
   const adm = await admin();
   const fin = await criarUsuario(adm, 'FINANCEIRO');
-  const { cooperando, email: emailMot } = await criarCooperando(adm);
+  const { cooperado, email: emailMot } = await criarCooperado(adm);
   const { cliente } = await criarCliente(adm);
   const mot = await Sessao.entrar(emailMot, 'senha-temporaria-e2e');
 
   // Motorista elabora e submete (RN12)
   const novo = await mot.enviar('post', '/contratos', {
-    cooperando_id: cooperando.id, cliente_id: cliente.id, descricao: 'Transporte E2E', valor_total: 6000,
+    cooperado_id: cooperado.id, cliente_id: cliente.id, descricao: 'Transporte E2E', valor_total: 6000,
     modalidade: 'MENSAL', num_parcelas: 3, dia_vencimento: 10, data_inicio: '2026-12-01', taxa_tipo: 'PERCENTUAL', taxa_valor: 10,
   });
   expect(novo.status(), await novo.text()).toBe(201);
@@ -51,22 +51,28 @@ test('fluxo completo: do contrato ao repasse', async () => {
   expect((await adm.enviar('post', `/contratos/${contrato.id}/encerramento`)).status()).toBe(409);
 
   // CA-04: outro motorista não enxerga o contrato (404)
-  const outro = await criarCooperando(adm);
+  const outro = await criarCooperado(adm);
   const motB = await Sessao.entrar(outro.email, 'senha-temporaria-e2e');
   expect((await motB.get(`/contratos/${contrato.id}`)).status()).toBe(404);
 
   // Concorrência otimista: PUT com versão antiga → 409 (D13) — contrato ATIVO não é editável (RN12)
-  const put = await adm.enviar('put', `/contratos/${contrato.id}`, { ...contrato, versao: 0 });
-  expect(put.status()).toBe(409);
+  const put = await adm.enviar('put', `/contratos/${contrato.id}`, {
+    cooperando_id: cooperando.id, cliente_id: cliente.id, descricao: contrato.descricao,
+    valor_total: contrato.valor_total, modalidade: contrato.modalidade,
+    num_parcelas: contrato.num_parcelas, dia_vencimento: contrato.dia_vencimento,
+    data_inicio: contrato.data_inicio, data_fim: contrato.data_fim,
+    taxa_tipo: contrato.taxa_tipo, taxa_valor: contrato.taxa_valor, versao: 0,
+  });
+  expect(put.status(), await put.text()).toBe(409);
 });
 
 test('CA-02: taxa fixa maior que a parcela responde 422 com o campo taxa_valor', async () => {
   const adm = await admin();
-  const { cooperando, email } = await criarCooperando(adm);
+  const { cooperado, email } = await criarCooperado(adm);
   const { cliente } = await criarCliente(adm);
   const mot = await Sessao.entrar(email, 'senha-temporaria-e2e');
   const c = await mot.enviar('post', '/contratos', {
-    cooperando_id: cooperando.id, cliente_id: cliente.id, descricao: 'Taxa alta', valor_total: 1200, modalidade: 'MENSAL',
+    cooperado_id: cooperado.id, cliente_id: cliente.id, descricao: 'Taxa alta', valor_total: 1200, modalidade: 'MENSAL',
     num_parcelas: 3, dia_vencimento: 5, data_inicio: '2026-12-01', taxa_tipo: 'FIXO', taxa_valor: 500,
   });
   const id = (await c.json()).id;
@@ -77,11 +83,11 @@ test('CA-02: taxa fixa maior que a parcela responde 422 com o campo taxa_valor',
   expect(prob.campos_invalidos.map((x: any) => x.campo)).toContain('taxa_valor');
 });
 
-test('CA-06: despesa da cooperativa com cooperando_id responde 422', async () => {
+test('CA-06: despesa da cooperativa com cooperado_id responde 422', async () => {
   const adm = await admin();
-  const { cooperando } = await criarCooperando(adm);
+  const { cooperado } = await criarCooperado(adm);
   const r = await adm.enviar('post', '/despesas', {
-    origem: 'COOPERATIVA', categoria: 'ADMINISTRATIVA', descricao: 'Aluguel', valor: 1000, data_despesa: '2026-11-05', cooperando_id: cooperando.id,
+    origem: 'COOPERATIVA', categoria: 'ADMINISTRATIVA', descricao: 'Aluguel', valor: 1000, data_despesa: '2026-11-05', cooperado_id: cooperado.id,
   });
   expect(r.status()).toBe(422);
 });

@@ -4,9 +4,9 @@ import { admin, ADMIN_EMAIL, SENHA } from './api';
 // Testes de interface. Os seletores seguem o contrato com o front (README): rótulos "E-mail" e "Senha",
 // botão "Entrar". Ajuste-os se o front adotar outros textos.
 test.describe('Interface', () => {
-  test('rotas protegidas redirecionam ao login quando não há sessão', async ({ page }) => {
+  test('rotas protegidas exibem o login quando não há sessão', async ({ page }) => {
     await page.goto('/contratos');
-    await expect(page).toHaveURL(/login/);
+    await expect(page.getByRole('heading', { name: /entrar na cooperativa/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /entrar/i })).toBeVisible();
   });
 
@@ -20,7 +20,7 @@ test.describe('Interface', () => {
     await expect(page.getByRole('link', { name: /usuários/i })).toBeVisible();
   });
 
-  test('CA-10: token expirado e refresh falho redirecionam ao login', async ({ page, context }) => {
+  test('CA-10: token expirado e refresh falho exibem o login', async ({ page, context }) => {
     await admin();
     await page.goto('/login');
     await page.getByLabel(/e-mail/i).fill(ADMIN_EMAIL);
@@ -30,6 +30,6 @@ test.describe('Interface', () => {
     await context.clearCookies({ name: 'ACCESS_TOKEN' });
     await context.clearCookies({ name: 'REFRESH_TOKEN' });
     await page.goto('/contratos');
-    await expect(page).toHaveURL(/login/);
+    await expect(page.getByRole('button', { name: /entrar/i })).toBeVisible();
   });
 });

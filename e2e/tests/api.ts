@@ -51,7 +51,22 @@ export async function admin() {
   const r = await s.login(ADMIN_EMAIL, SENHA);
   if (r.status() === 200) return s;
   await s.ctx.dispose();
-  return Sessao.entrar(ADMIN_EMAIL, ADMIN_PASSWORD);
+
+  // Bootstrap local pode vir sem troca obrigatória: promover à senha final uma vez para que
+  // os testes de interface (que fazem login pelo formulário) usem a mesma credencial.
+  const inicial = await Sessao.nova();
+  const entrada = await inicial.login(ADMIN_EMAIL, ADMIN_PASSWORD);
+  expect(entrada.status(), await entrada.text()).toBe(200);
+  const troca = await inicial.enviar('post', '/auth/alterar-senha', {
+    senha_atual: ADMIN_PASSWORD, nova_senha: SENHA,
+  });
+  expect(troca.status(), await troca.text()).toBe(204);
+  await inicial.ctx.dispose();
+
+  const final = await Sessao.nova();
+  const reentrada = await final.login(ADMIN_EMAIL, SENHA);
+  expect(reentrada.status(), await reentrada.text()).toBe(200);
+  return final;
 }
 
 export async function criarUsuario(adm: Sessao, papel: 'FINANCEIRO') {
@@ -61,15 +76,15 @@ export async function criarUsuario(adm: Sessao, papel: 'FINANCEIRO') {
   return Sessao.entrar(email, 'senha-temporaria-e2e');
 }
 
-export async function criarCooperando(adm: Sessao) {
+export async function criarCooperado(adm: Sessao) {
   const n = Math.floor(Math.random() * 1e9).toString().padStart(9, '0');
   const email = `mot-${uid()}@e2e.local`;
-  const r = await adm.enviar('post', '/cooperandos', {
+  const r = await adm.enviar('post', '/cooperados', {
     matricula: `E2E-${uid()}`.slice(0, 20), nome: 'Motorista E2E', cpf: cpfValido(n), data_ingresso: '2024-01-01',
     usuario: { email, senha: 'senha-temporaria-e2e' },
   });
   expect(r.status(), await r.text()).toBe(201);
-  return { cooperando: await r.json(), email };
+  return { cooperado: await r.json(), email };
 }
 
 export async function criarCliente(adm: Sessao) {

@@ -41,7 +41,7 @@ export function setup() {
 export function leitura() {
   const s = entrar(__ENV.ADMIN_EMAIL, __ENV.ADMIN_SENHA);
   void s;
-  for (const url of ['/contratos?size=20', '/pagamentos?size=20&status=PREVISTO', '/despesas?size=20', '/cooperandos?size=20', '/clientes?size=20']) {
+  for (const url of ['/contratos?size=20', '/pagamentos?size=20&status=PREVISTO', '/despesas?size=20', '/cooperados?size=20', '/clientes?size=20']) {
     const r = http.get(`${BASE}/api/v1${url}`);
     listagens.add(r.timings.duration);
     check(r, { [`GET ${url}`]: (x) => x.status === 200 });

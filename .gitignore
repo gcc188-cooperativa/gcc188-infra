@@ -1,7 +1,22 @@
+# Ambiente local e segredos
 .env
+.env.*
+!.env.example
 secrets/
 certs/
+
+# Dependências de tooling Node
 node_modules/
+
+# Artefatos de testes E2E/performance
 e2e/playwright-report/
 e2e/test-results/
 e2e/k6/.k6.env
+
+# IDEs, logs e arquivos de SO
+.idea/
+.vscode/
+*.iml
+*.log
+.DS_Store
+Thumbs.db

@@ -23,6 +23,23 @@ scripts/down.sh dev          # para, preservando volumes
 scripts/reset-dev.sh         # DESTRUTIVO: apaga banco e volumes locais
 ```
 
+### Execução local com Podman
+
+Quando não há Docker, mas há Podman, instale o provider de Compose em
+`~/.docker/cli-plugins/docker-compose` (qualquer release v2 do Docker Compose serve) e use:
+
+```bash
+scripts/up-local.sh          # constrói backend/front dos fontes, sobe tudo e libera o login local
+# https://localhost:8443  →  admin@teste.com / admin
+```
+
+O overlay `compose.local.yaml` troca apenas o healthcheck do backend (a imagem local não traz
+`thc`), reduz a senha mínima para 4 caracteres (credencial `admin@teste.com` / `admin`) e usa um socket da API
+do Podman funcional mesmo após reboot da sessão. O build do front usa o `Dockerfile` versionado em
+`gcc188-front`, que instala somente as dependências declaradas no `package.json`. O build do backend
+continua usando `gcc188-backend/Dockerfile.local`, pois a imagem publicada é gerada via Paketo
+(`bootBuildImage`) e não há Dockerfile de produção no repositório da API.
+
 Sem instalar Java nem Node (RNF-15). As imagens vêm de `ghcr.io/<GHCR_OWNER>/gcc188-{backend,front}` nas versões de `versions.env` (`edge` é provisório até existirem releases; fixe `X.Y.Z` no marco M0). Para imagens privadas: `docker login ghcr.io`.
 
 ## Estrutura
@@ -68,16 +85,19 @@ Estes pontos precisam ser cumpridos pelos repositórios `gcc188-backend` e `gcc1
 ```bash
 scripts/up.sh dev
 cd e2e && npm ci && npx playwright install chromium
+E2E_ADMIN_EMAIL="$(cat ../secrets/app.bootstrap.admin.email)" \
 E2E_ADMIN_PASSWORD="$(cat ../secrets/app.bootstrap.admin.password)" npx playwright test   # projetos: api, ui
 e2e/backup-test.sh dev                      # CA-13: semeia, faz backup, restaura em banco descartável e confere
 e2e/k6/prepare.sh && set -a && . e2e/k6/.k6.env && set +a && k6 run e2e/k6/perf.js   # RNF-10 (semeie antes com contratos=1000)
 ```
 
+A suíte promove a senha do administrador para `senha-forte-e2e-2026` no primeiro uso; `E2E_ADMIN_PASSWORD` continua sendo a senha inicial do bootstrap.
+
 | Teste | Cobre |
 |---|---|
 | `seguranca.api.spec.ts` | CA-11 (CSRF), CA-12 (reuso de _refresh_), CA-15, atributos dos _cookies_, 401 e mensagem única de login, cabeçalhos e Actuator não exposto |
 | `fluxo.api.spec.ts` | contrato → aprovação → baixa → repasse; CA-01 a CA-07 (parcial), matriz de papéis, concorrência |
-| `sessao.ui.spec.ts` | redirecionamento ao _login_, entrada, CA-10 |
+| `sessao.ui.spec.ts` | exibição do _login_ em rotas protegidas, entrada, CA-10 |
 | `backup-test.sh` | CA-13, RN05 sobre o dump restaurado |
 | `k6/perf.js` | RNF-10: p95 de listagens 800 ms, comandos 1 s, relatórios 2 s, massa de 1.000/12.000/5.000 |
 
@@ -87,6 +107,18 @@ e2e/k6/prepare.sh && set -a && . e2e/k6/.k6.env && set +a && k6 run e2e/k6/perf.
 - **Agendado (diário):** `e2e-edge` com as imagens `edge` de `develop` dos repositórios de aplicação.
 - **Antes de cada release:** `perf` roda no PR de release do Release Please (ou manualmente).
 - **Versão:** Release Please cria a tag `vX.Y.Z` e o `CHANGELOG.md`. Modelo de ramos: _trunk-based_ protegido (D04) — `master`, ramos curtos `feat/*` e `fix/*`, PR com revisão e verificações obrigatórias, _squash merge_. Commits: `tipo(escopo): descrição` (escopos em `commitlint.config.cjs`).
+
+## Regras de uso do Git (tarefa #21)
+
+- **Ramos:** _trunk-based_ protegido (D04) — `master` + ramos curtos `feat/*`, `fix/*` e `docs/*` (até 2 dias úteis), PR com revisão e verificações obrigatórias, _squash merge_. Release Please cria a tag `vX.Y.Z`.
+- **Commits:** _Conventional Commits_ `tipo(escopo): descrição (RF/RNF-xxx)`; escopos válidos em `commitlint.config.cjs` (`proxy`, `front`, `backend`, `db`, `backup`, `compose`, `e2e`, `perf`, `observabilidade`, `scripts`, `versoes`, `ci`, `deps`, `docs`). Ex.: `fix(proxy): corrigir CSP (RNF-19)`. Referência sugerida na tarefa: [iuricode/padrões-de-commits](https://github.com/iuricode/padroes-de-commits); adotamos Conventional Commits em vez disso por compatibilidade com commitlint, Release Please e geração automática de changelog.
+- **Pastas:** Compose, `caddy/`, `backup/`, `observability/`, `e2e/`, `scripts/` e `docs/runbook.md` ficam aqui; a documentação de requisitos e design fica em `gcc188-docs`. `secrets/`, `certs/` e `.env` nunca são versionados.
+- **`.gitignore`:** ignora artefatos locais, segredos e saídas de teste para evitar vazamento e ruído no repositório.
+  - `.env`, `.env.*` (exceto `.env.example`), `secrets/`, `certs/`: segredos e configuração local sensível.
+  - `node_modules/`: dependências do tooling Node.
+  - `e2e/playwright-report/`, `e2e/test-results/`, `e2e/k6/.k6.env`: relatórios/resultados de testes e credenciais geradas pelo k6.
+  - `.idea/`, `.vscode/`, `*.iml`, `*.log`, `.DS_Store`, `Thumbs.db`: metadados de IDE, logs e arquivos de SO.
+- **Verificação:** `lefthook` executa `pre-commit` (yamllint, shellcheck, hadolint, `docker compose config`) e `commit-msg` (commitlint); o workflow `governance` valida título de PR e commits no CI.
 
 ## Limites desta entrega
 
