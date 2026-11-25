@@ -4,7 +4,10 @@
 set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 
-ADMIN_EMAIL=admin@teste.com ADMIN_PASSWORD=admin "$ROOT/scripts/init-env.sh"
+ADMIN_EMAIL='admin@teste.com'
+ADMIN_PASSWORD='admin'
+
+"$ROOT/scripts/init-env.sh"
 "$ROOT/scripts/mkcert.sh"
 
 # No Podman rootless o postgres roda como UID 70 (mapeado para subuid) e precisa atravessar o diretório.
@@ -17,8 +20,8 @@ fi
 # Força a credencial pedida para a verificação local (init-env.sh não sobrescreve segredos existentes).
 umask 077
 chmod u+w secrets/app.bootstrap.admin.email secrets/app.bootstrap.admin.password
-printf '%s' admin@teste.com > secrets/app.bootstrap.admin.email
-printf '%s' admin > secrets/app.bootstrap.admin.password
+printf '%s' "$ADMIN_EMAIL" > secrets/app.bootstrap.admin.email
+printf '%s' "$ADMIN_PASSWORD" > secrets/app.bootstrap.admin.password
 chmod 444 secrets/app.bootstrap.admin.email secrets/app.bootstrap.admin.password
 
 # O socket da API do Podman pode ficar inalcançável após reboot/troca de sessão.
@@ -56,8 +59,8 @@ COMPOSE=(podman compose --env-file versions.env --env-file .env \
 "${COMPOSE[@]}" exec -T \
   -e PGPASSWORD="$(cat secrets/spring.datasource.password)" db \
   psql -U "$(cat secrets/spring.datasource.username)" -d "${DB_NAME:-cooperativa}" \
-  -c "UPDATE usuario SET email = 'admin@teste.com', deve_trocar_senha = false WHERE email IN ('admin', 'admin@teste.com')" >/dev/null
+  -c "UPDATE usuario SET email = '$ADMIN_EMAIL', deve_trocar_senha = false WHERE email IN ('admin', '$ADMIN_EMAIL')" >/dev/null
 
 "${COMPOSE[@]}" ps
 echo "Acesse: https://localhost:8443"
-echo "Login: admin@teste.com / admin"
+echo "Login: $ADMIN_EMAIL / $ADMIN_PASSWORD"
